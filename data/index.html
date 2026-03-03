@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ADAU1467 DSP Control</title>
+  <style>
+    /* ========================================================================
+       ADAU1467 DSP Control - Professional Audio UI
+       Industrial / utilitarian aesthetic with studio monitor vibes
+       ======================================================================== */
+
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg-primary: #0a0a0c;
+      --bg-panel: #111116;
+      --bg-channel: #16161c;
+      --bg-input: #1c1c24;
+      --border-color: #2a2a35;
+      --border-accent: #3a3a48;
+
+      --text-primary: #e8e8ec;
+      --text-secondary: #8888a0;
+      --text-dim: #555568;
+      --text-label: #aaaabc;
+
+      --accent-blue: #4488ff;
+      --accent-blue-dim: #2255aa;
+      --accent-red: #ff4444;
+      --accent-red-dim: #aa2222;
+      --accent-red-glow: #ff444440;
+      --accent-green: #44cc66;
+      --accent-green-dim: #228844;
+      --accent-amber: #ffaa22;
+      --accent-amber-dim: #aa7711;
+
+      --mute-active: #ff3333;
+      --mute-active-glow: rgba(255, 51, 51, 0.25);
+      --mute-inactive: #333340;
+      --unmuted-signal: #33cc55;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* --- Header Bar --- */
+    .header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--accent-blue);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      letter-spacing: -0.5px;
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-primary);
+    }
+
+    .header-subtitle {
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* --- Status Indicators --- */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot.alive { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+    .status-dot.dead { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
+    .status-dot.unknown { background: var(--text-dim); }
+
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* --- Connection Banner --- */
+    .connection-banner {
+      background: var(--accent-red-dim);
+      color: var(--text-primary);
+      text-align: center;
+      padding: 6px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      display: none;
+    }
+
+    .connection-banner.visible {
+      display: block;
+      animation: pulse-bg 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-bg {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* --- Main Content --- */
+    .main-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* --- Section Label --- */
+    .section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      padding-left: 2px;
+    }
+
+    /* --- Channel Strip --- */
+    .channel-strip {
+      background: var(--bg-channel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: border-color 0.2s ease;
+    }
+
+    .channel-strip:hover {
+      border-color: var(--border-accent);
+    }
+
+    .channel-strip.muted {
+      border-left: 3px solid var(--mute-active);
+    }
+
+    .channel-strip.unmuted {
+      border-left: 3px solid var(--unmuted-signal);
+    }
+
+    .channel-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 1;
+    }
+
+    .channel-number {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-dim);
+      min-width: 40px;
+    }
+
+    .channel-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .channel-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .channel-status {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .channel-status.muted { color: var(--mute-active); }
+    .channel-status.unmuted { color: var(--unmuted-signal); }
+
+    /* Signal indicator bar */
+    .signal-indicator {
+      width: 60px;
+      height: 4px;
+      background: var(--bg-input);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .signal-indicator-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease, background 0.3s ease;
+    }
+
+    .signal-indicator-fill.active {
+      width: 75%;
+      background: var(--unmuted-signal);
+    }
+
+    .signal-indicator-fill.muted {
+      width: 0%;
+      background: var(--mute-active);
+    }
+
+    /* --- Mute Button --- */
+    .mute-btn {
+      width: 72px;
+      height: 40px;
+      border: none;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mute-btn.muted {
+      background: var(--mute-active);
+      color: #fff;
+      box-shadow: 0 0 16px var(--mute-active-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+
+    .mute-btn.muted:hover {
+      background: #ff5555;
+    }
+
+    .mute-btn.muted:active {
+      background: #cc2222;
+      transform: scale(0.97);
+    }
+
+    .mute-btn.unmuted {
+      background: var(--mute-inactive);
+      color: var(--text-secondary);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .mute-btn.unmuted:hover {
+      background: #444458;
+      color: var(--text-primary);
+    }
+
+    .mute-btn.unmuted:active {
+      background: #2a2a38;
+      transform: scale(0.97);
+    }
+
+    /* --- Status Panel --- */
+    .status-panel {
+      background: var(--bg-channel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-top: 24px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .status-item-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+    }
+
+    .status-item-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-label);
+    }
+
+    .status-item-value.good { color: var(--accent-green); }
+    .status-item-value.bad { color: var(--accent-red); }
+    .status-item-value.warn { color: var(--accent-amber); }
+
+    /* --- Dev Console --- */
+    .dev-console {
+      background: var(--bg-channel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-top: 24px;
+      overflow: hidden;
+    }
+
+    .dev-console-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--bg-input);
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .dev-console-header:hover {
+      background: #22222c;
+    }
+
+    .dev-console-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+    }
+
+    .dev-console-toggle {
+      font-size: 10px;
+      color: var(--text-dim);
+      transition: transform 0.2s;
+    }
+
+    .dev-console-body {
+      padding: 16px;
+      display: none;
+    }
+
+    .dev-console-body.open {
+      display: block;
+    }
+
+    .dev-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      align-items: flex-end;
+    }
+
+    .dev-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .dev-field label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    .dev-field input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 10px;
+      width: 120px;
+    }
+
+    .dev-field input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .dev-btn {
+      background: var(--accent-blue-dim);
+      color: var(--text-primary);
+      border: none;
+      border-radius: 3px;
+      padding: 6px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+    }
+
+    .dev-btn:hover { background: var(--accent-blue); }
+    .dev-btn.danger { background: var(--accent-red-dim); }
+    .dev-btn.danger:hover { background: var(--accent-red); }
+
+    .dev-log {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      margin-top: 10px;
+    }
+
+    .dev-log .log-entry { margin-bottom: 2px; }
+    .dev-log .log-entry.error { color: var(--accent-red); }
+    .dev-log .log-entry.success { color: var(--accent-green); }
+    .dev-log .log-entry.info { color: var(--accent-blue); }
+
+    /* --- Responsive --- */
+    @media (max-width: 600px) {
+      .header { padding: 10px 14px; }
+      .main-content { padding: 14px; }
+      .channel-strip { padding: 12px 14px; }
+      .status-grid { grid-template-columns: repeat(2, 1fr); }
+      .dev-row { flex-wrap: wrap; }
+    }
+
+    /* --- Animations --- */
+    .fade-in {
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-mark">DSP</div>
+      <div>
+        <div class="header-title">ADAU1467 Control</div>
+        <div class="header-subtitle">SPI Test Framework · ESP32</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-group">
+        <span class="status-dot" id="statusDotDsp"></span>
+        <span id="statusTextDsp">DSP</span>
+      </div>
+      <div class="status-group">
+        <span class="status-dot" id="statusDotWs"></span>
+        <span>WS</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connection Banner -->
+  <div class="connection-banner" id="connectionBanner">
+    WebSocket disconnected — attempting to reconnect...
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+
+    <!-- Channel Strips -->
+    <div class="section-label">Mute Control · Digital Inputs</div>
+    <div id="channelStrips">
+      <!-- Populated by JavaScript -->
+    </div>
+
+    <!-- System Status Panel -->
+    <div class="section-label" style="margin-top: 28px;">System Status</div>
+    <div class="status-panel fade-in">
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="status-item-label">DSP Status</div>
+          <div class="status-item-value" id="valDspStatus">—</div>
+        </div>
+        <div class="status-item">
+          <div class="status-item-label">DSP Core</div>
+          <div class="status-item-value" id="valDspRunning">—</div>
+        </div>
+        <div class="status-item">
+          <div class="status-item-label">SPI Transactions</div>
+          <div class="status-item-value" id="valSpiCount">—</div>
+        </div>
+        <div class="status-item">
+          <div class="status-item-label">Uptime</div>
+          <div class="status-item-value" id="valUptime">—</div>
+        </div>
+        <div class="status-item">
+          <div class="status-item-label">WS Clients</div>
+          <div class="status-item-value" id="valClients">—</div>
+        </div>
+        <div class="status-item">
+          <div class="status-item-label">Last Error</div>
+          <div class="status-item-value" id="valError">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Developer Console (collapsible) -->
+    <div class="dev-console fade-in">
+      <div class="dev-console-header" onclick="toggleDevConsole()">
+        <div class="dev-console-title">Developer Console</div>
+        <div class="dev-console-toggle" id="devToggle">▼</div>
+      </div>
+      <div class="dev-console-body" id="devConsoleBody">
+        <div class="dev-row">
+          <div class="dev-field">
+            <label>Address (hex)</label>
+            <input type="text" id="devAddr" placeholder="0x0000" value="0x0000">
+          </div>
+          <div class="dev-field">
+            <label>Value (hex)</label>
+            <input type="text" id="devValue" placeholder="0x00800000" value="0x00800000">
+          </div>
+          <button class="dev-btn" onclick="devWrite()">Write</button>
+          <button class="dev-btn" onclick="devRead()">Read</button>
+          <button class="dev-btn danger" onclick="devResetDsp()">Reset DSP</button>
+        </div>
+        <div class="dev-log" id="devLog">
+          <div class="log-entry info">Developer console ready. Use Write/Read to interact with ADAU1467 registers directly.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // ========================================================================
+    // ADAU1467 Web Control - Client Application
+    // ========================================================================
+
+    // --- State ---
+    let ws = null;
+    let reconnectTimer = null;
+    let state = {
+      connected: false,
+      channels: [],
+      dsp_alive: false,
+      dsp_running: false,
+      spi_transactions: 0,
+      uptime: 0,
+      wifi_clients: 0,
+      error: 0
+    };
+
+    // --- WebSocket Connection ---
+    function connectWebSocket() {
+      const host = window.location.hostname || '192.168.4.1';
+      const port = window.location.port || '80';
+      const url = `ws://${host}:${port}/ws`;
+
+      console.log(`[WS] Connecting to ${url}...`);
+      logDev(`Connecting to ${url}...`, 'info');
+
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        console.log('[WS] Connected');
+        state.connected = true;
+        updateConnectionUI();
+        logDev('WebSocket connected', 'success');
+
+        // Request fresh status
+        ws.send(JSON.stringify({ action: 'get_status' }));
+
+        // Clear reconnect timer
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[WS] Disconnected');
+        state.connected = false;
+        updateConnectionUI();
+        logDev('WebSocket disconnected', 'error');
+        scheduleReconnect();
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WS] Error:', err);
+        logDev('WebSocket error', 'error');
+      };
+
+      ws.onmessage = (event) => {
+        handleMessage(JSON.parse(event.data));
+      };
+    }
+
+    function scheduleReconnect() {
+      if (reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectWebSocket();
+      }, 3000);
+    }
+
+    function sendCommand(cmd) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        logDev('Cannot send: WebSocket not connected', 'error');
+        return;
+      }
+      const json = JSON.stringify(cmd);
+      ws.send(json);
+      console.log('[WS] Sent:', json);
+    }
+
+    // --- Message Handler ---
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'status':
+          state.dsp_alive = msg.dsp_alive;
+          state.dsp_running = msg.dsp_running;
+          state.spi_transactions = msg.spi_transactions;
+          state.uptime = msg.uptime;
+          state.wifi_clients = msg.wifi_clients;
+          state.error = msg.error;
+          state.channels = msg.channels || [];
+          updateAllUI();
+          break;
+
+        case 'write_result':
+          logDev(
+            `Write 0x${msg.address.toString(16).toUpperCase().padStart(4, '0')} = ` +
+            `0x${msg.value.toString(16).toUpperCase().padStart(8, '0')} → ` +
+            (msg.success ? 'OK' : 'FAILED'),
+            msg.success ? 'success' : 'error'
+          );
+          break;
+
+        case 'read_result':
+          logDev(
+            `Read 0x${msg.address.toString(16).toUpperCase().padStart(4, '0')} = ` +
+            `0x${msg.value.toString(16).toUpperCase().padStart(8, '0')} → ` +
+            (msg.success ? 'OK' : 'FAILED'),
+            msg.success ? 'success' : 'error'
+          );
+          break;
+
+        case 'error':
+          logDev(`Error: ${msg.message}`, 'error');
+          break;
+
+        default:
+          console.log('[WS] Unknown message type:', msg.type);
+      }
+    }
+
+    // --- UI Rendering ---
+    function renderChannelStrips() {
+      const container = document.getElementById('channelStrips');
+      container.innerHTML = '';
+
+      state.channels.forEach((ch, i) => {
+        const isMuted = ch.muted;
+        const strip = document.createElement('div');
+        strip.className = `channel-strip fade-in ${isMuted ? 'muted' : 'unmuted'}`;
+        strip.id = `channel-${ch.id}`;
+
+        strip.innerHTML = `
+          <div class="channel-info">
+            <div class="channel-number">${(ch.id + 32).toString()}</div>
+            <div class="channel-details">
+              <div class="channel-name">${ch.name}</div>
+              <div class="channel-status ${isMuted ? 'muted' : 'unmuted'}">
+                ${isMuted ? '● MUTED' : '● ACTIVE'}
+              </div>
+              <div class="signal-indicator">
+                <div class="signal-indicator-fill ${isMuted ? 'muted' : 'active'}"></div>
+              </div>
+            </div>
+          </div>
+          <button class="mute-btn ${isMuted ? 'muted' : 'unmuted'}"
+                  onclick="toggleMute(${ch.id})"
+                  title="Click to ${isMuted ? 'unmute' : 'mute'}">
+            ${isMuted ? 'MUTE' : 'MUTE'}
+          </button>
+        `;
+
+        container.appendChild(strip);
+      });
+    }
+
+    function updateStatusPanel() {
+      const dspStatus = document.getElementById('valDspStatus');
+      dspStatus.textContent = state.dsp_alive ? 'Connected' : 'No Response';
+      dspStatus.className = `status-item-value ${state.dsp_alive ? 'good' : 'bad'}`;
+
+      const dspRunning = document.getElementById('valDspRunning');
+      dspRunning.textContent = state.dsp_running ? 'Running' : 'Stopped';
+      dspRunning.className = `status-item-value ${state.dsp_running ? 'good' : 'warn'}`;
+
+      document.getElementById('valSpiCount').textContent =
+        state.spi_transactions.toLocaleString();
+
+      // Format uptime
+      const hrs = Math.floor(state.uptime / 3600);
+      const mins = Math.floor((state.uptime % 3600) / 60);
+      const secs = state.uptime % 60;
+      document.getElementById('valUptime').textContent =
+        `${hrs}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+
+      document.getElementById('valClients').textContent = state.wifi_clients;
+
+      const errorEl = document.getElementById('valError');
+      errorEl.textContent = state.error === 0 ? 'None' : `Code ${state.error}`;
+      errorEl.className = `status-item-value ${state.error === 0 ? 'good' : 'bad'}`;
+
+      // Header DSP status dot
+      const dspDot = document.getElementById('statusDotDsp');
+      dspDot.className = `status-dot ${state.dsp_alive ? 'alive' : 'dead'}`;
+      document.getElementById('statusTextDsp').textContent =
+        state.dsp_alive ? 'DSP' : 'DSP ✗';
+    }
+
+    function updateConnectionUI() {
+      const wsDot = document.getElementById('statusDotWs');
+      wsDot.className = `status-dot ${state.connected ? 'alive' : 'dead'}`;
+
+      const banner = document.getElementById('connectionBanner');
+      banner.className = `connection-banner ${state.connected ? '' : 'visible'}`;
+    }
+
+    function updateAllUI() {
+      renderChannelStrips();
+      updateStatusPanel();
+      updateConnectionUI();
+    }
+
+    // --- User Actions ---
+    function toggleMute(channelId) {
+      sendCommand({ action: 'toggle_mute', channel: channelId });
+
+      // Optimistic UI update
+      const ch = state.channels.find(c => c.id === channelId);
+      if (ch) {
+        ch.muted = !ch.muted;
+        renderChannelStrips();
+      }
+    }
+
+    // --- Developer Console ---
+    function toggleDevConsole() {
+      const body = document.getElementById('devConsoleBody');
+      const toggle = document.getElementById('devToggle');
+      const isOpen = body.classList.toggle('open');
+      toggle.textContent = isOpen ? '▲' : '▼';
+    }
+
+    function logDev(message, type = '') {
+      const log = document.getElementById('devLog');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+      entry.textContent = `[${ts}] ${message}`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+
+      // Keep log from growing too large
+      while (log.children.length > 100) {
+        log.removeChild(log.firstChild);
+      }
+    }
+
+    function parseHex(str) {
+      str = str.trim();
+      if (str.startsWith('0x') || str.startsWith('0X')) {
+        str = str.substring(2);
+      }
+      return parseInt(str, 16);
+    }
+
+    function devWrite() {
+      const address = parseHex(document.getElementById('devAddr').value);
+      const value = parseHex(document.getElementById('devValue').value);
+
+      if (isNaN(address) || isNaN(value)) {
+        logDev('Invalid hex input', 'error');
+        return;
+      }
+
+      logDev(`Writing 0x${value.toString(16).toUpperCase().padStart(8, '0')} to ` +
+             `0x${address.toString(16).toUpperCase().padStart(4, '0')}...`, 'info');
+      sendCommand({ action: 'write_param', address: address, value: value });
+    }
+
+    function devRead() {
+      const address = parseHex(document.getElementById('devAddr').value);
+
+      if (isNaN(address)) {
+        logDev('Invalid hex address', 'error');
+        return;
+      }
+
+      logDev(`Reading from 0x${address.toString(16).toUpperCase().padStart(4, '0')}...`, 'info');
+      sendCommand({ action: 'read_param', address: address });
+    }
+
+    function devResetDsp() {
+      if (confirm('Reset the ADAU1467? This will interrupt audio processing.')) {
+        logDev('Sending DSP reset command...', 'info');
+        sendCommand({ action: 'reset_dsp' });
+      }
+    }
+
+    // --- Initialize ---
+    window.addEventListener('load', () => {
+      connectWebSocket();
+    });
+  </script>
+</body>
+</html>
