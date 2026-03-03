@@ -29,3 +29,6 @@ desktop.ini
 
 # Logs
 *.log
+
+# Root-level duplicate of data/index.html
+/index.html
