@@ -24,6 +24,7 @@
 #include "adau1467_spi.h"
 #include "dsp_control.h"
 #include "web_server.h"
+#include <LittleFS.h>
 
 // =============================================================================
 // Local UI State
@@ -72,6 +73,20 @@ void setup() {
   // --- Web Server ---
   web_server_init();
 
+  // Check filesystem contents
+if (LittleFS.begin(true)) {
+  File f = LittleFS.open("/index.html", "r");
+  if (f) {
+    Serial.printf("[FS] index.html size: %d bytes\n", f.size());
+    // Read first 200 chars to verify content
+    String preview = f.readString().substring(0, 200);
+    Serial.printf("[FS] Preview: %s\n", preview.c_str());
+    f.close();
+  } else {
+    Serial.println("[FS] ERROR: Cannot open /index.html");
+  }
+}
+
   // --- Ready ---
   Serial.println();
   Serial.println("============================================");
@@ -98,7 +113,7 @@ void loop() {
     if (button_state == LOW && last_button_state == HIGH) {
       // Button pressed (falling edge) - toggle Output Left mute
       Serial.println("[UI] Button press -> Toggle Output Left mute");
-      dsp_toggle_mute(DSP_CHANNEL_OUTL);
+      dsp_toggle_mute(DSP_CHANNEL_OUT_L);
       web_server_push_status();  // Notify connected web clients
     }
 

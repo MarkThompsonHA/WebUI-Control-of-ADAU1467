@@ -4,7 +4,12 @@ Real-time web-based control of Analog Devices ADAU1467 DSP parameters via an ESP
 
 ## What This Does
 
-Your ESP32 creates a Wi-Fi access point, serves a browser-based control UI, and communicates with the ADAU1467 eval board over SPI to toggle mute blocks on digital inputs 32 and 33. The web UI updates in real-time via WebSocket — when you press a mute button in the browser, the ESP32 writes the corresponding parameter to the ADAU1467's parameter RAM over SPI within milliseconds.
+Your ESP32 creates a Wi-Fi access point, serves a browser-based control UI, and communicates with the ADAU1467 eval board over SPI. The web UI provides:
+
+- **Mute controls** — toggle output mutes on Left and Right channels
+- **Level controls** — adjust gain (−40 dBFS to 0 dBFS) for Speaker and Headphone outputs via sliders or direct numeric entry
+
+All controls update in real-time via WebSocket. When you move a slider or press a mute button, the ESP32 writes the corresponding parameter to the ADAU1467's parameter RAM over SPI within milliseconds.
 
 ## Architecture
 
@@ -13,7 +18,9 @@ Your ESP32 creates a Wi-Fi access point, serves a browser-based control UI, and 
 │  Web Browser (phone / laptop)                       │
 │  ┌─────────────────────────────────────────────┐    │
 │  │  ADAU1467 Control UI                        │    │
-│  │  [MUTE DIN32] [MUTE DIN33]                  │    │
+│  │  [MUTE OUT L] [MUTE OUT R]                  │    │
+│  │  [─────── Speaker Level ───────]            │    │
+│  │  [───── Headphone Level ───────]            │    │
 │  │  Developer Console (raw register R/W)        │    │
 │  └──────────────────┬──────────────────────────┘    │
 │                     │ WebSocket (JSON)               │
@@ -24,21 +31,21 @@ Your ESP32 creates a Wi-Fi access point, serves a browser-based control UI, and 
 │  ┌──────────────────┴──────────────────────────┐    │
 │  │  Wi-Fi AP: "ADAU1467-Control"               │    │
 │  │  Async Web Server + WebSocket               │    │
-│  │  DSP Control Layer (mute, future: vol/EQ)   │    │
+│  │  DSP Control Layer (mute, gain)             │    │
 │  │  ADAU1467 SPI Driver                        │    │
 │  └──────────────────┬──────────────────────────┘    │
 │        GPIO18 SCK   │  GPIO23 MOSI                  │
 │        GPIO19 MISO  │  GPIO5  CS                    │
 │        GPIO25 RESET │                               │
 └─────────────────────┼───────────────────────────────┘
-                      │ SPI (1 MHz, Mode 3)
+                      │ SPI (100 kHz, Mode 3)
 ┌─────────────────────┼───────────────────────────────┐
 │  EVAL-ADAU1467Z     │                               │
 │  ┌──────────────────┴──────────────────────────┐    │
 │  │  J1 Header (10-pin SPI Slave Control Port)  │    │
 │  │  ADAU1467 SigmaDSP                          │    │
 │  │  Running self-booted program from EEPROM    │    │
-│  │  Parameter RAM ← mute values written here   │    │
+│  │  Parameter RAM ← mute & gain values here    │    │
 │  └─────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────┘
 ```
@@ -49,53 +56,67 @@ Connect ESP32 to the **EVAL-ADAU1467Z J1 10-pin header** (the same header the US
 
 | ESP32 Pin | Signal | J1 Pin | Notes |
 |-----------|--------|--------|-------|
-| GPIO 23   | MOSI   | 3      | ESP32 → ADAU1467 |
-| GPIO 19   | MISO   | 4      | ADAU1467 → ESP32 |
-| GPIO 18   | SCK    | 5      | SPI Clock |
-| GPIO 5    | CS     | 7      | Chip Select (active LOW) |
+| GPIO 23   | MOSI   | 8      | ESP32 → ADAU1467 |
+| GPIO 19   | MISO   | 5      | ADAU1467 → ESP32 |
+| GPIO 18   | SCK    | 7      | SPI Clock |
+| GPIO 5    | CS     | 9      | Chip Select (active LOW) |
 | GND       | GND    | 2, 10  | Common ground |
-| GPIO 25   | RESET  | 9      | Optional: reset ADAU1467 |
+| GPIO 25   | RESET  | —      | Optional: reset ADAU1467 |
 
 **Also connect:**
 - GPIO 12 → LED + resistor → GND (Wi-Fi status)
 - GPIO 13 → LED + resistor → GND (SPI activity)
 - GPIO 14 → LED + resistor → GND (DSP status)
-- GPIO 26 → Momentary button → GND (toggles DIN32 mute)
+- GPIO 26 → Momentary button → GND
+- GPIO 27 → Toggle switch → GND
+- GPIO 34 → Potentiometer wiper (ADC, 0–3.3 V, input-only pin)
 
 ## Prerequisites
 
-1. **ADAU1467 must be self-booted** with a SigmaStudio program that includes mute blocks on DIN32 and DIN33
+1. **ADAU1467 must be self-booted** with a SigmaStudio program that includes:
+   - Output mute blocks for Left and Right channels
+   - Gain (volume) control blocks for the Speaker and Headphone paths
 2. The SELFBOOT switch (S3 position 1) on the eval board must be ON
 3. PlatformIO IDE installed in VS Code
 
 ## ⚠️ CRITICAL: Get Your SigmaStudio Parameter Addresses
 
-The placeholder addresses `0x0000` and `0x0001` in `hardware_config.h` **must be replaced** with the actual parameter RAM addresses from your SigmaStudio project. Here's how:
+The addresses in `hardware_config.h` **must match your SigmaStudio project**. The currently configured addresses are:
 
-### Method 1: SigmaStudio Export (Recommended)
+```c
+// Mute blocks
+#define MUTE_OUTL_ADDR        0x0275  // Output Left mute
+#define MUTE_OUTR_ADDR        0x0276  // Output Right mute
 
-1. In SigmaStudio, right-click your mute block → **Export System Files**
+// Gain control blocks (8.24 fixed-point, single param controls stereo pair)
+#define GAIN_SPEAKERS_ADDR    0x0267  // Loudspeaker output gain
+#define GAIN_HEADPHONES_ADDR  0x0268  // Headphone output gain
+```
+
+If your SigmaStudio program assigns different addresses, update these constants before flashing.
+
+### Finding Parameter Addresses — Method 1: SigmaStudio Export (Recommended)
+
+1. In SigmaStudio, right-click your project → **Export System Files**
 2. Open the generated `_IC_1_PARAM.h` file
-3. Find the `#define` for your mute block — it will look something like:
+3. Find the `#define` for each block — for example:
    ```c
-   #define MOD_MUTE_DIN32_ALG0_MUTEONOFF_ADDR  0x0018
+   #define MOD_MUTECTL_OUTL_ALG0_MUTEONOFF_ADDR  0x0275
+   #define MOD_PCGAINCTRL_ALG0_TARGET_ADDR        0x0267
    ```
-4. Copy these addresses into `hardware_config.h`:
-   ```c
-   #define MUTE_DIN32_ADDR  0x0018  // From SigmaStudio export
-   #define MUTE_DIN33_ADDR  0x0019  // From SigmaStudio export
-   ```
+4. Copy the addresses into `hardware_config.h`
 
-### Method 2: SigmaStudio Capture Window
+### Finding Parameter Addresses — Method 2: Capture Window
 
 1. Enable **Tools → Capture Window** in SigmaStudio
-2. Click your mute block's on/off button in SigmaStudio
-3. Observe the SPI write in the capture window — note the address and data values
-4. A mute-on will write `0x00000000`, mute-off will write `0x00800000`
+2. Click the mute or volume control in the SigmaStudio UI
+3. Observe the SPI write in the capture window — note the address and data
+4. Mute-on writes `0x00000000`; mute-off writes `0x00800000`
+5. Gain values are 8.24 fixed-point: `0 dBFS = 0x00800000`, `−6 dBFS ≈ 0x00400000`
 
-### Method 3: Use the Developer Console
+### Finding Parameter Addresses — Method 3: Developer Console
 
-The web UI includes a Developer Console that lets you read/write arbitrary registers. You can use this to experiment and find the correct addresses.
+The web UI includes a Developer Console for reading and writing arbitrary registers. Use this to probe addresses interactively.
 
 ## Building & Uploading
 
@@ -114,8 +135,11 @@ The web UI includes a Developer Console that lets you read/write arbitrary regis
 1. Power up the ESP32 and ADAU1467 eval board
 2. On your phone/laptop, connect to Wi-Fi network **"ADAU1467-Control"** (password: `dsp1467ctrl`)
 3. Open a browser and navigate to **http://192.168.4.1**
-4. You'll see the control UI with mute buttons for DIN32 and DIN33
-5. Click a mute button — the ESP32 writes to the ADAU1467 via SPI in real-time
+4. The UI shows two sections:
+   - **Mute Control · Outputs** — click MUTE buttons to toggle output mutes
+   - **Level Control · PC Input** — drag sliders or type a value (−40 to 0 dBFS) and click Apply
+
+Gain changes are throttled to one SPI write every 50 ms while dragging, then a final write on release, keeping the interface responsive without flooding the bus.
 
 ## Project Structure
 
@@ -125,12 +149,12 @@ adau1467-web-control/
 ├── include/
 │   ├── hardware_config.h       # Pin definitions, register addresses, constants
 │   ├── adau1467_spi.h          # SPI driver API
-│   ├── dsp_control.h           # High-level DSP control API
+│   ├── dsp_control.h           # High-level DSP control API (mute + gain)
 │   └── web_server.h            # Web server API
 ├── src/
 │   ├── main.cpp                # Entry point, setup/loop
 │   ├── adau1467_spi.cpp        # SPI read/write implementation
-│   ├── dsp_control.cpp         # Mute/volume/EQ control logic
+│   ├── dsp_control.cpp         # Mute and gain control logic
 │   └── web_server.cpp          # Wi-Fi, HTTP, WebSocket server
 ├── data/
 │   └── index.html              # Web UI (uploaded to LittleFS)
@@ -139,19 +163,12 @@ adau1467-web-control/
 
 ## Extending the Framework
 
-### Adding a Volume Control
-
-1. **SigmaStudio**: Add a volume block in your signal path, export to get the parameter address
-2. **hardware_config.h**: Add `#define VOLUME_DIN32_ADDR 0xXXXX`
-3. **dsp_control.h/cpp**: Uncomment and implement `dsp_set_volume()`
-4. **web_server.cpp**: Add a `"set_volume"` action handler in `handle_ws_message()`
-5. **index.html**: Add a slider control that sends `{ action: "set_volume", channel: 0, volume: 0.75 }`
-
 ### Adding EQ, Compressor, Delay, etc.
 
-Follow the same pattern. The architecture is designed so each new parameter type requires:
+Follow the same pattern used for gain controls. Each new parameter type requires:
+
 - An address constant in `hardware_config.h`
-- A new entry in `dsp_block_type_t` enum
+- A new identifier in the appropriate enum in `dsp_control.h`
 - A control function in `dsp_control.cpp`
 - A WebSocket action handler in `web_server.cpp`
 - A UI control in `index.html`
@@ -175,6 +192,7 @@ All communication between the browser and ESP32 uses JSON over WebSocket at `ws:
 |--------|--------|-------------|
 | `set_mute` | `channel`, `muted` | Set mute state (true/false) |
 | `toggle_mute` | `channel` | Toggle mute on a channel |
+| `set_gain` | `gain_id`, `gain_db` | Set gain in dBFS (−40.0 to 0.0) |
 | `get_status` | — | Request full status update |
 | `reset_dsp` | — | Pulse ADAU1467 reset line |
 | `write_param` | `address`, `value` | Raw 32-bit parameter write |
@@ -192,8 +210,12 @@ All communication between the browser and ESP32 uses JSON over WebSocket at `ws:
   "wifi_clients": 1,
   "error": 0,
   "channels": [
-    { "id": 0, "name": "Digital In 32", "muted": false },
-    { "id": 1, "name": "Digital In 33", "muted": true }
+    { "id": 0, "name": "Output Left",  "muted": false },
+    { "id": 1, "name": "Output Right", "muted": true  }
+  ],
+  "gains": [
+    { "id": 0, "name": "Speakers",   "gain_db": "-6.0" },
+    { "id": 1, "name": "Headphones", "gain_db": "0.0"  }
   ]
 }
 ```
@@ -204,6 +226,7 @@ All communication between the browser and ESP32 uses JSON over WebSocket at `ws:
 |---------|-------|
 | "DSP: No Response" in UI | SPI wiring, CS pin, ADAU1467 power, SELFBOOT enabled |
 | Mute button has no effect on audio | Parameter addresses need updating from SigmaStudio export |
-| Can't connect to Wi-Fi AP | ESP32 may not have booted — check serial monitor at 115200 |
+| Slider moves but gain doesn't change | Gain parameter addresses need updating from SigmaStudio export |
+| Can't connect to Wi-Fi AP | ESP32 may not have booted — check serial monitor at 115200 baud |
 | Web page won't load | Did you upload the filesystem image? (separate from firmware upload) |
 | SPI transactions increment but no audio change | Address mismatch — use Developer Console to find correct addresses |
