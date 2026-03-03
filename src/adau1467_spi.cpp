@@ -7,6 +7,10 @@
 //   - 3-byte header only (command + 16-bit address)
 //   - Command byte: 0x00 = write, 0x01 = read
 //   - No chip address byte, no length bytes
+//
+// Memory depths:
+//   Parameter RAM (0x0000–0x09EB): 4 bytes per word (32-bit, 8.24 fixed-point)
+//   Control Registers (0xF000+):   2 bytes per register (16-bit)
 // =============================================================================
 
 #include "adau1467_spi.h"
@@ -161,7 +165,7 @@ bool adau1467_read(uint16_t address, uint8_t* data, uint16_t length) {
 }
 
 // =============================================================================
-// Parameter Helpers (8.24 Fixed-Point)
+// Parameter RAM Helpers (32-bit, 8.24 Fixed-Point)
 // =============================================================================
 
 bool adau1467_write_param(uint16_t address, uint32_t value) {
@@ -189,6 +193,43 @@ bool adau1467_read_param(uint16_t address, uint32_t* value) {
   return true;
 }
 
+// =============================================================================
+// Control Register Helpers (16-bit)
+// =============================================================================
+
+bool adau1467_write_register(uint16_t address, uint16_t value) {
+  uint8_t data[2];
+  data[0] = (value >> 8) & 0xFF;
+  data[1] = value & 0xFF;
+
+  return adau1467_write(address, data, 2);
+}
+
+bool adau1467_read_register(uint16_t address, uint16_t* value) {
+  uint8_t data[2];
+
+  // whilst the second input arguemnt is a pointer (reference to memory) the & is not
+  // implicitely used here. in C/C++ an array name already is a pointer to the first element
+  // BUT, if you wanted to explicitely define the pointer you could use:  &data[0] (address of the first element)
+  if (!adau1467_read(address, data, 2)) {
+    return false;
+  }
+
+  // Note to self:
+  // *value dereferences the pointer - meaning "go to that address and write to it"
+  // data[0] is first SPI byte (high byte), data[1] is the second byte (low byte)
+  // (uint16_t)data[0] casts it from 8-bit to 16-bit value
+  // << 8 shifts it left 8 bits so it leaves the lower 8 bits for data[1]
+  // now the two bytes are reassembled into the original 16-bit register value
+  *value = ((uint16_t)data[0] << 8) | (uint16_t)data[1];
+
+  return true;
+}
+
+// =============================================================================
+// Fixed-Point Conversion Utilities
+// =============================================================================
+
 uint32_t adau1467_float_to_fixed(float value) {
   // Clamp to valid range
   if (value > 1.0f) value = 1.0f;
@@ -207,13 +248,12 @@ float adau1467_fixed_to_float(uint32_t fixed) {
 // =============================================================================
 
 bool adau1467_is_alive() {
-  // Try to read the PLL lock register - should return valid data
-  uint8_t data[4];
-  bool success = adau1467_read(ADAU1467_REG_PLL_LOCK, data, 4);
+  // Read the PLL Lock register (0xF004) - 16-bit control register
+  uint16_t pll_lock = 0;
+  bool success = adau1467_read_register(ADAU1467_REG_PLL_LOCK, &pll_lock);
 
   if (success) {
-    Serial.printf("[SPI] ADAU1467 alive check: PLL Lock = 0x%02X%02X%02X%02X\n",
-                  data[0], data[1], data[2], data[3]);
+    Serial.printf("[SPI] ADAU1467 alive check: PLL Lock = 0x%04X\n", pll_lock);
   } else {
     Serial.println("[SPI] ADAU1467 alive check: FAILED");
   }
@@ -222,14 +262,17 @@ bool adau1467_is_alive() {
 }
 
 bool adau1467_is_running() {
-  uint32_t dsp_run = 0;
+  // Read the CORE_STATUS register (0xF405) - 16-bit, read-only
+  // Bit 0: 1 = core is running, 0 = core is stopped
+  uint16_t core_status = 0;
 
-  if (!adau1467_read_param(ADAU1467_REG_DSP_RUN, &dsp_run)) {
+  // &core_status gives the function a pointer to the variables location in memory so it can write to it
+  if (!adau1467_read_register(ADAU1467_REG_CORE_STATUS, &core_status)) {
     return false;
   }
 
-  // DSP Run register: 1 = running, 0 = stopped
-  return (dsp_run != 0);
+  Serial.printf("[SPI] Core status: 0x%04X\n", core_status);
+  return (core_status & 0x01) != 0;
 }
 
 uint32_t adau1467_get_transaction_count() {

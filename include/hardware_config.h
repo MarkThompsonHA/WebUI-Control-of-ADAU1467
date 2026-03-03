@@ -83,25 +83,55 @@
 #define GAIN_MAX_DB            0.0f   // Maximum gain in dBFS (unity)
 #define GAIN_DEFAULT_DB        0.0f   // Default gain at startup
 
-// --- Core ADAU1467 Registers (from datasheet, for status/diagnostics) ---
-#define ADAU1467_REG_PLL_CTRL0        0xF000
-#define ADAU1467_REG_PLL_CTRL1        0xF001
-#define ADAU1467_REG_PLL_CLK_SRC      0xF002
-#define ADAU1467_REG_PLL_ENABLE       0xF003
-#define ADAU1467_REG_PLL_LOCK         0xF004
-#define ADAU1467_REG_MCLK_OUT         0xF005
-#define ADAU1467_REG_PLL_WATCHDOG     0xF006
-#define ADAU1467_REG_CLK_GEN1_M       0xF020
-#define ADAU1467_REG_CLK_GEN1_N       0xF021
-#define ADAU1467_REG_DSP_RUN          0xF089
-#define ADAU1467_REG_DSP_SR_SETTING   0xF009
-#define ADAU1467_REG_KILL_CORE        0xF08B
-#define ADAU1467_REG_PANIC_CLEAR      0xF021
-#define ADAU1467_REG_PANIC_PARITY_MASK 0xF022
-#define ADAU1467_REG_PANIC_SOFTWARE   0xF023
-#define ADAU1467_REG_PANIC_WD         0xF024
-#define ADAU1467_REG_PANIC_STACK      0xF025
-#define ADAU1467_REG_PANIC_LOOP       0xF026
+// =============================================================================
+// ADAU1467 Control Registers (from datasheet Rev. A)
+// All control registers are 16-bit (2 bytes)
+// =============================================================================
+
+// --- PLL & Clock Registers ---
+#define ADAU1467_REG_PLL_CTRL0        0xF000  // PLL Control Register 0
+#define ADAU1467_REG_PLL_CTRL1        0xF001  // PLL Control Register 1
+#define ADAU1467_REG_PLL_CLK_SRC      0xF002  // selects the source of the clock used for inputs. 0 - direct in from MCLK pin. 1 - PLL clock.
+#define ADAU1467_REG_PLL_ENABLE       0xF003  // enables or disables the PLL. PLL won't clock until bit 0 is enabled.
+#define ADAU1467_REG_PLL_LOCK         0xF004  // a read-only flag representing status of PLL. 1 - locked, 0 - unlocked
+#define ADAU1467_REG_MCLK_OUT         0xF005  // MCLK Output Control
+#define ADAU1467_REG_PLL_WATCHDOG     0xF006  // PLL Watchdog
+#define ADAU1467_REG_CLK_GEN1_M       0xF020  // Clock Gen 1 M value
+#define ADAU1467_REG_CLK_GEN1_N       0xF021  // Clock Gen 1 N value
+
+// --- DSP Core Control Registers ---
+#define ADAU1467_REG_HIBERNATE        0xF400  // Hibernate control
+#define ADAU1467_REG_START_PULSE      0xF401  // Start pulse
+#define ADAU1467_REG_START_CORE       0xF402  // Start core
+#define ADAU1467_REG_KILL_CORE        0xF403  // Kill core
+#define ADAU1467_REG_START_ADDRESS    0xF404  // Program start address
+#define ADAU1467_REG_CORE_STATUS      0xF405  // Core status (read-only: bit 0 = running)
+
+// --- Panic Registers ---
+#define ADAU1467_REG_PANIC_CLEAR      0xF421  // Clear panic flags
+#define ADAU1467_REG_PANIC_PARITY_MASK 0xF422 // Panic parity mask
+#define ADAU1467_REG_PANIC_SOFTWARE   0xF423  // Software panic
+#define ADAU1467_REG_PANIC_WD         0xF424  // Watchdog panic
+#define ADAU1467_REG_PANIC_STACK      0xF425  // Stack overflow panic
+#define ADAU1467_REG_PANIC_LOOP       0xF426  // Loop stack panic
+#define ADAU1467_REG_PANIC_FLAG       0xF427  // Panic flag (read-only)
+#define ADAU1467_REG_PANIC_CODE       0xF428  // Panic code (read-only)
+
+// --- Misc Registers ---
+#define ADAU1467_REG_SOFT_RESET       0xF890  // Software reset
+
+// =============================================================================
+// Safeload Registers (for atomic coefficient updates)
+// =============================================================================
+
+#define ADAU1467_REG_SAFELOAD_DATA0   0x6000  // Safeload data slot 0
+#define ADAU1467_REG_SAFELOAD_DATA1   0x6001  // Safeload data slot 1
+#define ADAU1467_REG_SAFELOAD_DATA2   0x6002  // Safeload data slot 2
+#define ADAU1467_REG_SAFELOAD_DATA3   0x6003  // Safeload data slot 3
+#define ADAU1467_REG_SAFELOAD_DATA4   0x6004  // Safeload data slot 4
+#define ADAU1467_REG_SAFELOAD_ADDR    0x6005  // Target parameter RAM address
+#define ADAU1467_REG_SAFELOAD_COUNT_L 0x6006  // Number of words (lower)
+#define ADAU1467_REG_SAFELOAD_COUNT_U 0x6007  // Number of words (upper)
 
 // --- 8.24 Fixed-Point Values ---
 #define ADAU_FIXEDPOINT_ZERO  0x00000000  // 0.0 = MUTED

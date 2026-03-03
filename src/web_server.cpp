@@ -8,6 +8,7 @@
 #include "hardware_config.h"
 
 #include <WiFi.h>
+#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -18,6 +19,8 @@
 
 static AsyncWebServer server(WEB_SERVER_PORT);
 static AsyncWebSocket ws("/ws");
+static DNSServer dnsServer;
+static bool ap_mode = false;
 
 // Timing
 static unsigned long last_status_push = 0;
@@ -262,6 +265,10 @@ static void init_wifi() {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, false, WIFI_AP_MAX_CONN);
 
+    // Start DNS server to redirect all lookups to our IP (captive portal support)
+    dnsServer.start(53, "*", WiFi.softAPIP());
+    ap_mode = true;
+
     IPAddress ip = WiFi.softAPIP();
     Serial.printf("[WiFi] AP started. Connect to '%s' and browse to http://%s\n",
                   WIFI_AP_SSID, ip.toString().c_str());
@@ -285,6 +292,50 @@ void web_server_init() {
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
+  // =========================================================================
+  // Captive Portal Handlers (MUST be registered before serveStatic)
+  // These respond to OS-level connectivity checks so the device dismisses
+  // its captive portal sheet and allows normal browsing to 192.168.4.1
+  // =========================================================================
+
+  // Apple iOS / macOS
+  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/html",
+      "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+  });
+  server.on("/library/test/success.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/html",
+      "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+  });
+
+  // Android
+  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(204);
+  });
+  server.on("/gen_204", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(204);
+  });
+  server.on("/connectivity-check.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/html", "");
+  });
+
+  // Microsoft Windows
+  server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain", "Microsoft Connect Test");
+  });
+  server.on("/redirect", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/html", "");
+  });
+
+  // Firefox
+  server.on("/success.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(200, "text/plain", "success");
+  });
+
+  // =========================================================================
+  // Application Routes
+  // =========================================================================
+
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -305,6 +356,11 @@ void web_server_init() {
 // =============================================================================
 
 void web_server_loop() {
+  // Process DNS requests in AP mode (captive portal support)
+  if (ap_mode) {
+    dnsServer.processNextRequest();
+  }
+
   ws.cleanupClients();
 
   if (millis() - last_status_push >= STATUS_REPORT_INTERVAL_MS) {
