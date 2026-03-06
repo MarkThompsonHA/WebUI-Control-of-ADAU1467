@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>ADAU1467 DSP Control</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 
     :root {
       --bg-primary: #0a0a0c;
@@ -55,43 +55,52 @@
       background: var(--bg-panel);
       border-bottom: 1px solid var(--border-color);
       padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       user-select: none;
     }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
+    .header-left { display: flex; align-items: center; gap: 14px; }
     .logo-mark {
-      width: 32px;
-      height: 32px;
-      border: 2px solid var(--accent-blue);
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--accent-blue);
-      letter-spacing: -0.5px;
+      width: 32px; height: 32px;
+      border: 2px solid var(--accent-blue); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--accent-blue); letter-spacing: -0.5px;
     }
-
     .header-title { font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
     .header-subtitle { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
-
     .header-right { display: flex; align-items: center; gap: 16px; }
-
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     .status-dot.alive { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
     .status-dot.dead { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
     .status-dot.unknown { background: var(--text-dim); }
-
     .status-group { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* --- Tab Navigation Bar --- */
+    .tab-bar {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 0;
+      user-select: none;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    .tab-btn {
+      background: none; border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 12px 18px; cursor: pointer;
+      transition: all 0.2s ease; white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.03); }
+    .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+    .tab-btn.active:hover { color: var(--accent-blue); }
+    .tab-spacer { flex: 1; }
+    .tab-btn.mute-all { color: var(--accent-red); font-weight: 700; letter-spacing: 1.5px; border-bottom-color: transparent; }
+    .tab-btn.mute-all:hover { background: rgba(255, 68, 68, 0.08); color: #ff6666; }
+    .tab-btn.mute-all.engaged { background: var(--mute-active); color: #fff; border-bottom-color: var(--mute-active); box-shadow: 0 0 12px var(--mute-active-glow); }
+    .tab-btn.mute-all.engaged:hover { background: #ff5555; color: #fff; }
 
     /* --- Connection Banner --- */
     .connection-banner { background: var(--accent-red-dim); color: var(--text-primary); text-align: center; padding: 6px; font-size: 11px; letter-spacing: 0.5px; display: none; }
@@ -101,24 +110,22 @@
     /* --- Main Content --- */
     .main-content { max-width: 800px; margin: 0 auto; padding: 20px; }
 
+    /* --- Tab Pages --- */
+    .tab-page { display: none; }
+    .tab-page.active { display: block; animation: fadeIn 0.25s ease; }
+
     .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 12px; padding-left: 2px; }
 
     /* --- Channel Strip (Mute) --- */
     .channel-strip {
-      background: var(--bg-channel);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 16px 20px;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px;
+      padding: 16px 20px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between;
       transition: border-color 0.2s ease;
     }
     .channel-strip:hover { border-color: var(--border-accent); }
     .channel-strip.muted { border-left: 3px solid var(--mute-active); }
     .channel-strip.unmuted { border-left: 3px solid var(--unmuted-signal); }
-
     .channel-info { display: flex; align-items: center; gap: 14px; flex: 1; }
     .channel-number { font-size: 20px; font-weight: 700; color: var(--text-dim); min-width: 40px; }
     .channel-details { display: flex; flex-direction: column; gap: 2px; }
@@ -126,12 +133,10 @@
     .channel-status { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
     .channel-status.muted { color: var(--mute-active); }
     .channel-status.unmuted { color: var(--unmuted-signal); }
-
     .signal-indicator { width: 60px; height: 4px; background: var(--bg-input); border-radius: 2px; margin-top: 4px; overflow: hidden; }
     .signal-indicator-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease, background 0.3s ease; }
     .signal-indicator-fill.active { width: 75%; background: var(--unmuted-signal); }
     .signal-indicator-fill.muted { width: 0%; background: var(--mute-active); }
-
     .mute-btn {
       width: 72px; height: 40px; border: none; border-radius: 4px;
       font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
@@ -147,166 +152,45 @@
 
     /* --- Gain Control Strip --- */
     .gain-strip {
-      background: var(--bg-channel);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 18px 20px;
-      margin-bottom: 12px;
-      border-left: 3px solid var(--accent-blue);
-      transition: border-color 0.2s ease;
+      background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px;
+      padding: 18px 20px; margin-bottom: 12px;
+      border-left: 3px solid var(--accent-blue); transition: border-color 0.2s ease;
     }
     .gain-strip:hover { border-color: var(--border-accent); border-left-color: var(--accent-blue); }
-
-    .gain-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .gain-label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .gain-icon {
-      width: 28px; height: 28px;
-      border: 1.5px solid var(--accent-blue);
-      border-radius: 4px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; color: var(--accent-blue);
-    }
-
+    .gain-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .gain-label { display: flex; align-items: center; gap: 10px; }
+    .gain-icon { width: 28px; height: 28px; border: 1.5px solid var(--accent-blue); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--accent-blue); }
     .gain-name { font-size: 13px; font-weight: 500; }
     .gain-subtitle { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
-
-    .gain-value-display {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text-primary);
-      font-variant-numeric: tabular-nums;
-      min-width: 100px;
-      text-align: right;
-    }
-
-    .gain-value-unit {
-      font-size: 11px;
-      font-weight: 400;
-      color: var(--text-dim);
-      margin-left: 3px;
-    }
-
-    /* Slider container */
-    .gain-slider-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .gain-slider-min, .gain-slider-max {
-      font-size: 10px;
-      color: var(--text-dim);
-      white-space: nowrap;
-      min-width: 36px;
-    }
-
+    .gain-value-display { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 100px; text-align: right; }
+    .gain-value-unit { font-size: 11px; font-weight: 400; color: var(--text-dim); margin-left: 3px; }
+    .gain-slider-row { display: flex; align-items: center; gap: 14px; }
+    .gain-slider-min, .gain-slider-max { font-size: 10px; color: var(--text-dim); white-space: nowrap; min-width: 36px; }
     .gain-slider-max { text-align: right; }
-
-    /* Range slider styling */
     .gain-slider {
-      flex: 1;
-      -webkit-appearance: none;
-      appearance: none;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--slider-track);
-      outline: none;
-      cursor: pointer;
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 6px; border-radius: 3px; background: var(--slider-track); outline: none; cursor: pointer;
     }
-
     .gain-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      background: var(--slider-thumb);
-      border: 2px solid var(--bg-channel);
-      box-shadow: 0 0 8px rgba(68, 136, 255, 0.3);
-      cursor: pointer;
+      -webkit-appearance: none; appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--slider-thumb); border: 2px solid var(--bg-channel);
+      box-shadow: 0 0 8px rgba(68, 136, 255, 0.3); cursor: pointer;
       transition: box-shadow 0.15s ease, transform 0.1s ease;
     }
-
-    .gain-slider::-webkit-slider-thumb:hover {
-      box-shadow: 0 0 14px rgba(68, 136, 255, 0.5);
-      transform: scale(1.1);
-    }
-
-    .gain-slider::-webkit-slider-thumb:active {
-      transform: scale(0.95);
-    }
-
-    .gain-slider::-moz-range-thumb {
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      background: var(--slider-thumb);
-      border: 2px solid var(--bg-channel);
-      box-shadow: 0 0 8px rgba(68, 136, 255, 0.3);
-      cursor: pointer;
-    }
-
-    /* Text input row */
-    .gain-input-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .gain-input-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-dim);
-    }
-
-    .gain-input {
-      background: var(--bg-input);
-      border: 1px solid var(--border-color);
-      border-radius: 3px;
-      color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      padding: 5px 8px;
-      width: 80px;
-      text-align: right;
-    }
-
+    .gain-slider::-webkit-slider-thumb:hover { box-shadow: 0 0 14px rgba(68, 136, 255, 0.5); transform: scale(1.1); }
+    .gain-slider::-webkit-slider-thumb:active { transform: scale(0.95); }
+    .gain-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--slider-thumb); border: 2px solid var(--bg-channel); box-shadow: 0 0 8px rgba(68, 136, 255, 0.3); cursor: pointer; }
+    .gain-input-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .gain-input-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+    .gain-input { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 5px 8px; width: 80px; text-align: right; }
     .gain-input:focus { outline: none; border-color: var(--accent-blue); }
-
-    .gain-input-unit {
-      font-size: 11px;
-      color: var(--text-dim);
-    }
-
-    .gain-input-btn {
-      background: var(--accent-blue-dim);
-      color: var(--text-primary);
-      border: none;
-      border-radius: 3px;
-      padding: 5px 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      letter-spacing: 0.5px;
-      margin-left: 4px;
-    }
-
+    .gain-input-unit { font-size: 11px; color: var(--text-dim); }
+    .gain-input-btn { background: var(--accent-blue-dim); color: var(--text-primary); border: none; border-radius: 3px; padding: 5px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; cursor: pointer; letter-spacing: 0.5px; margin-left: 4px; }
     .gain-input-btn:hover { background: var(--accent-blue); }
 
     /* --- Status Panel --- */
-    .status-panel { background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px 20px; margin-top: 24px; }
+    .status-panel { background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; }
     .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
     .status-item { display: flex; flex-direction: column; gap: 2px; }
     .status-item-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
@@ -315,8 +199,16 @@
     .status-item-value.bad { color: var(--accent-red); }
     .status-item-value.warn { color: var(--accent-amber); }
 
+    /* --- Placeholder for future tabs --- */
+    .placeholder-panel {
+      background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px;
+      padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 12px; letter-spacing: 1px;
+    }
+    .placeholder-panel .placeholder-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+    .placeholder-panel .placeholder-text { text-transform: uppercase; letter-spacing: 2px; font-size: 10px; }
+
     /* --- Dev Console --- */
-    .dev-console { background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px; margin-top: 24px; overflow: hidden; }
+    .dev-console { background: var(--bg-channel); border: 1px solid var(--border-color); border-radius: 6px; margin-top: 16px; overflow: hidden; }
     .dev-console-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--bg-input); border-bottom: 1px solid var(--border-color); cursor: pointer; user-select: none; }
     .dev-console-header:hover { background: #22222c; }
     .dev-console-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
@@ -341,6 +233,8 @@
     /* --- Responsive --- */
     @media (max-width: 600px) {
       .header { padding: 10px 14px; }
+      .tab-bar { padding: 0 10px; }
+      .tab-btn { padding: 10px 12px; font-size: 10px; }
       .main-content { padding: 14px; }
       .channel-strip { padding: 12px 14px; }
       .gain-strip { padding: 14px; }
@@ -376,80 +270,108 @@
     </div>
   </div>
 
+  <!-- Tab Navigation -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('status', this)">Status</button>
+    <button class="tab-btn" onclick="switchTab('levels', this)">Levels</button>
+    <button class="tab-btn" onclick="switchTab('control', this)">Control</button>
+    <button class="tab-btn" onclick="switchTab('adjust', this)">Adjust</button>
+    <div class="tab-spacer"></div>
+    <button class="tab-btn mute-all" id="muteAllBtn" onclick="toggleMuteAll()">Mute All</button>
+  </div>
+
   <!-- Connection Banner -->
   <div class="connection-banner" id="connectionBanner">
-    WebSocket disconnected — attempting to reconnect...
+    WebSocket disconnected &mdash; attempting to reconnect...
   </div>
 
   <!-- Main Content -->
   <div class="main-content">
 
-    <!-- Mute Controls -->
-    <div class="section-label">Mute Control &middot; Outputs</div>
-    <div id="channelStrips">
-      <!-- Populated by JavaScript -->
-    </div>
+    <!-- TAB: Status -->
+    <div class="tab-page active" id="page-status">
+      <div class="section-label">System Status</div>
+      <div class="status-panel fade-in">
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-item-label">DSP Status</div>
+            <div class="status-item-value" id="valDspStatus">&mdash;</div>
+          </div>
+          <div class="status-item">
+            <div class="status-item-label">DSP Core</div>
+            <div class="status-item-value" id="valDspRunning">&mdash;</div>
+          </div>
+          <div class="status-item">
+            <div class="status-item-label">SPI Transactions</div>
+            <div class="status-item-value" id="valSpiCount">&mdash;</div>
+          </div>
+          <div class="status-item">
+            <div class="status-item-label">Uptime</div>
+            <div class="status-item-value" id="valUptime">&mdash;</div>
+          </div>
+          <div class="status-item">
+            <div class="status-item-label">WS Clients</div>
+            <div class="status-item-value" id="valClients">&mdash;</div>
+          </div>
+          <div class="status-item">
+            <div class="status-item-label">Last Error</div>
+            <div class="status-item-value" id="valError">&mdash;</div>
+          </div>
+        </div>
+      </div>
 
-    <!-- Gain Controls -->
-    <div class="section-label" style="margin-top: 28px;">Level Control &middot; PC Input</div>
-    <div id="gainControls">
-      <!-- Populated by JavaScript -->
-    </div>
+      <div class="section-label" style="margin-top: 24px;">Mute Control &middot; Outputs</div>
+      <div id="channelStrips"></div>
 
-    <!-- System Status Panel -->
-    <div class="section-label" style="margin-top: 28px;">System Status</div>
-    <div class="status-panel fade-in">
-      <div class="status-grid">
-        <div class="status-item">
-          <div class="status-item-label">DSP Status</div>
-          <div class="status-item-value" id="valDspStatus">&mdash;</div>
+      <div class="dev-console fade-in">
+        <div class="dev-console-header" onclick="toggleDevConsole()">
+          <div class="dev-console-title">Developer Console</div>
+          <div class="dev-console-toggle" id="devToggle">&#9660;</div>
         </div>
-        <div class="status-item">
-          <div class="status-item-label">DSP Core</div>
-          <div class="status-item-value" id="valDspRunning">&mdash;</div>
-        </div>
-        <div class="status-item">
-          <div class="status-item-label">SPI Transactions</div>
-          <div class="status-item-value" id="valSpiCount">&mdash;</div>
-        </div>
-        <div class="status-item">
-          <div class="status-item-label">Uptime</div>
-          <div class="status-item-value" id="valUptime">&mdash;</div>
-        </div>
-        <div class="status-item">
-          <div class="status-item-label">WS Clients</div>
-          <div class="status-item-value" id="valClients">&mdash;</div>
-        </div>
-        <div class="status-item">
-          <div class="status-item-label">Last Error</div>
-          <div class="status-item-value" id="valError">&mdash;</div>
+        <div class="dev-console-body" id="devConsoleBody">
+          <div class="dev-row">
+            <div class="dev-field">
+              <label>Address (hex)</label>
+              <input type="text" id="devAddr" placeholder="0x0000" value="0x0000">
+            </div>
+            <div class="dev-field">
+              <label>Value (hex)</label>
+              <input type="text" id="devValue" placeholder="0x00800000" value="0x00800000">
+            </div>
+            <button class="dev-btn" onclick="devWrite()">Write</button>
+            <button class="dev-btn" onclick="devRead()">Read</button>
+            <button class="dev-btn danger" onclick="devResetDsp()">Reset DSP</button>
+          </div>
+          <div class="dev-log" id="devLog">
+            <div class="log-entry info">Developer console ready.</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Developer Console -->
-    <div class="dev-console fade-in">
-      <div class="dev-console-header" onclick="toggleDevConsole()">
-        <div class="dev-console-title">Developer Console</div>
-        <div class="dev-console-toggle" id="devToggle">&#9660;</div>
+    <!-- TAB: Levels -->
+    <div class="tab-page" id="page-levels">
+      <div class="section-label">Level Control &middot; PC Input</div>
+      <div id="gainControls"></div>
+    </div>
+
+    <!-- TAB: Control -->
+    <div class="tab-page" id="page-control">
+      <div class="section-label">DSP Control</div>
+      <div class="placeholder-panel">
+        <div class="placeholder-icon">&#9881;</div>
+        <div class="placeholder-text">DSP routing &amp; signal path controls</div>
+        <div style="margin-top: 8px; color: var(--text-dim); font-size: 10px;">Future: source selection, routing matrix, signal generators</div>
       </div>
-      <div class="dev-console-body" id="devConsoleBody">
-        <div class="dev-row">
-          <div class="dev-field">
-            <label>Address (hex)</label>
-            <input type="text" id="devAddr" placeholder="0x0000" value="0x0000">
-          </div>
-          <div class="dev-field">
-            <label>Value (hex)</label>
-            <input type="text" id="devValue" placeholder="0x00800000" value="0x00800000">
-          </div>
-          <button class="dev-btn" onclick="devWrite()">Write</button>
-          <button class="dev-btn" onclick="devRead()">Read</button>
-          <button class="dev-btn danger" onclick="devResetDsp()">Reset DSP</button>
-        </div>
-        <div class="dev-log" id="devLog">
-          <div class="log-entry info">Developer console ready.</div>
-        </div>
+    </div>
+
+    <!-- TAB: Adjust -->
+    <div class="tab-page" id="page-adjust">
+      <div class="section-label">Processing &middot; Adjust</div>
+      <div class="placeholder-panel">
+        <div class="placeholder-icon">&#9835;</div>
+        <div class="placeholder-text">EQ, dynamics &amp; filter controls</div>
+        <div style="margin-top: 8px; color: var(--text-dim); font-size: 10px;">Future: parametric EQ, compressor, delay, crossover</div>
       </div>
     </div>
 
@@ -461,7 +383,9 @@
     // ========================================================================
     let ws = null;
     let reconnectTimer = null;
-    let gainSendTimers = {};  // Throttle timers per gain control
+    let gainSendTimers = {};
+    let allMuted = false;
+    let currentTab = 'status';
 
     let state = {
       connected: false,
@@ -475,6 +399,61 @@
       error: 0
     };
 
+    // Tabs that need periodic status polling from the DSP
+    const POLLING_TABS = ['status'];
+
+    // ========================================================================
+    // Tab Navigation
+    // ========================================================================
+    function switchTab(tabId, btnEl) {
+      document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn:not(.mute-all)').forEach(b => b.classList.remove('active'));
+
+      const page = document.getElementById('page-' + tabId);
+      if (page) page.classList.add('active');
+      if (btnEl) btnEl.classList.add('active');
+
+      const previousTab = currentTab;
+      currentTab = tabId;
+
+      // Tell ESP32 whether to pause or resume status polling
+      const needsPolling = POLLING_TABS.includes(tabId);
+      const wasPolling = POLLING_TABS.includes(previousTab);
+
+      if (needsPolling && !wasPolling) {
+        // Switching TO a tab that needs polling — resume
+        sendCommand({ action: 'set_status_polling', paused: false });
+      } else if (!needsPolling && wasPolling) {
+        // Switching AWAY from a tab that needs polling — pause
+        sendCommand({ action: 'set_status_polling', paused: true });
+      }
+    }
+
+    // ========================================================================
+    // Mute All
+    // ========================================================================
+    function toggleMuteAll() {
+      allMuted = !allMuted;
+      state.channels.forEach(ch => {
+        sendCommand({ action: 'set_mute', channel: ch.id, muted: allMuted });
+        ch.muted = allMuted;
+      });
+      updateMuteAllButton();
+      renderChannelStrips();
+    }
+
+    function updateMuteAllButton() {
+      const btn = document.getElementById('muteAllBtn');
+      allMuted = state.channels.length > 0 && state.channels.every(ch => ch.muted);
+      if (allMuted) {
+        btn.classList.add('engaged');
+        btn.textContent = 'UNMUTE ALL';
+      } else {
+        btn.classList.remove('engaged');
+        btn.textContent = 'MUTE ALL';
+      }
+    }
+
     // ========================================================================
     // WebSocket
     // ========================================================================
@@ -482,10 +461,8 @@
       const host = window.location.hostname || '192.168.4.1';
       const port = window.location.port || '80';
       const url = `ws://${host}:${port}/ws`;
-
       console.log(`[WS] Connecting to ${url}...`);
       logDev(`Connecting to ${url}...`, 'info');
-
       ws = new WebSocket(url);
 
       ws.onopen = () => {
@@ -493,6 +470,13 @@
         updateConnectionUI();
         logDev('WebSocket connected', 'success');
         ws.send(JSON.stringify({ action: 'get_status' }));
+
+        // Tell ESP32 our current tab state
+        const needsPolling = POLLING_TABS.includes(currentTab);
+        if (!needsPolling) {
+          sendCommand({ action: 'set_status_polling', paused: true });
+        }
+
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       };
 
@@ -504,7 +488,6 @@
       };
 
       ws.onerror = () => { logDev('WebSocket error', 'error'); };
-
       ws.onmessage = (event) => { handleMessage(JSON.parse(event.data)); };
     }
 
@@ -514,10 +497,7 @@
     }
 
     function sendCommand(cmd) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        logDev('Cannot send: not connected', 'error');
-        return;
-      }
+      if (!ws || ws.readyState !== WebSocket.OPEN) { logDev('Cannot send: not connected', 'error'); return; }
       ws.send(JSON.stringify(cmd));
     }
 
@@ -537,15 +517,12 @@
           state.gains = msg.gains || [];
           updateAllUI();
           break;
-
         case 'write_result':
           logDev(`Write 0x${msg.address.toString(16).toUpperCase().padStart(4,'0')} = 0x${msg.value.toString(16).toUpperCase().padStart(8,'0')} ${msg.success ? 'OK' : 'FAILED'}`, msg.success ? 'success' : 'error');
           break;
-
         case 'read_result':
           logDev(`Read 0x${msg.address.toString(16).toUpperCase().padStart(4,'0')} = 0x${msg.value.toString(16).toUpperCase().padStart(8,'0')} ${msg.success ? 'OK' : 'FAILED'}`, msg.success ? 'success' : 'error');
           break;
-
         case 'error':
           logDev(`Error: ${msg.message}`, 'error');
           break;
@@ -557,51 +534,60 @@
     // ========================================================================
     function renderChannelStrips() {
       const container = document.getElementById('channelStrips');
-      container.innerHTML = '';
-
-      state.channels.forEach((ch) => {
-        const isMuted = ch.muted;
-        const strip = document.createElement('div');
-        strip.className = `channel-strip fade-in ${isMuted ? 'muted' : 'unmuted'}`;
-        strip.id = `channel-${ch.id}`;
-
-        strip.innerHTML = `
-          <div class="channel-info">
-            <div class="channel-number">${ch.id + 1}</div>
-            <div class="channel-details">
-              <div class="channel-name">${ch.name}</div>
-              <div class="channel-status ${isMuted ? 'muted' : 'unmuted'}">
-                ${isMuted ? '&#9679; MUTED' : '&#9679; ACTIVE'}
-              </div>
-              <div class="signal-indicator">
-                <div class="signal-indicator-fill ${isMuted ? 'muted' : 'active'}"></div>
+      
+      // Only rebuild if channel count changed
+      if (container.children.length !== state.channels.length) {
+        container.innerHTML = '';
+        state.channels.forEach((ch) => {
+          const isMuted = ch.muted;
+          const strip = document.createElement('div');
+          strip.className = `channel-strip fade-in ${isMuted ? 'muted' : 'unmuted'}`;
+          strip.id = `channel-${ch.id}`;
+          strip.innerHTML = `
+            <div class="channel-info">
+              <div class="channel-number">${ch.id + 1}</div>
+              <div class="channel-details">
+                <div class="channel-name">${ch.name}</div>
+                <div class="channel-status ${isMuted ? 'muted' : 'unmuted'}">
+                  ${isMuted ? '&#9679; MUTED' : '&#9679; ACTIVE'}
+                </div>
+                <div class="signal-indicator">
+                  <div class="signal-indicator-fill ${isMuted ? 'muted' : 'active'}"></div>
+                </div>
               </div>
             </div>
-          </div>
-          <button class="mute-btn ${isMuted ? 'muted' : 'unmuted'}"
-                  onclick="toggleMute(${ch.id})"
-                  title="Click to ${isMuted ? 'unmute' : 'mute'}">
-            MUTE
-          </button>
-        `;
-        container.appendChild(strip);
-      });
+            <button class="mute-btn ${isMuted ? 'muted' : 'unmuted'}"
+                    onclick="toggleMute(${ch.id})"
+                    title="Click to ${isMuted ? 'unmute' : 'mute'}">MUTE</button>
+          `;
+          container.appendChild(strip);
+        });
+      } else {
+        // Update in place without rebuilding
+        state.channels.forEach((ch) => {
+          const strip = document.getElementById(`channel-${ch.id}`);
+          if (!strip) return;
+          const isMuted = ch.muted;
+          strip.className = `channel-strip ${isMuted ? 'muted' : 'unmuted'}`;
+          strip.querySelector('.channel-status').className = `channel-status ${isMuted ? 'muted' : 'unmuted'}`;
+          strip.querySelector('.channel-status').innerHTML = isMuted ? '&#9679; MUTED' : '&#9679; ACTIVE';
+          strip.querySelector('.signal-indicator-fill').className = `signal-indicator-fill ${isMuted ? 'muted' : 'active'}`;
+          const btn = strip.querySelector('.mute-btn');
+          btn.className = `mute-btn ${isMuted ? 'muted' : 'unmuted'}`;
+          btn.title = `Click to ${isMuted ? 'unmute' : 'mute'}`;
+        });
+      }
     }
 
     function renderGainControls() {
       const container = document.getElementById('gainControls');
-
-      // Only rebuild if gain count changed (avoid disrupting slider interaction)
       if (container.children.length !== state.gains.length) {
         container.innerHTML = '';
-
         state.gains.forEach((g) => {
           const strip = document.createElement('div');
           strip.className = 'gain-strip fade-in';
           strip.id = `gain-${g.id}`;
-
-          const icons = ['&#9835;', '&#9834;'];  // Speaker / Headphone
-
+          const icons = ['&#9835;', '&#9834;'];
           strip.innerHTML = `
             <div class="gain-header">
               <div class="gain-label">
@@ -637,21 +623,13 @@
           container.appendChild(strip);
         });
       } else {
-        // Update values without rebuilding (preserves slider interaction)
         state.gains.forEach((g) => {
           const display = document.getElementById(`gainDisplay-${g.id}`);
-          if (display) {
-            display.innerHTML = `${formatGainDb(parseFloat(g.gain_db))}<span class="gain-value-unit">dBFS</span>`;
-          }
-          // Only update slider/input if user is not actively dragging
+          if (display) { display.innerHTML = `${formatGainDb(parseFloat(g.gain_db))}<span class="gain-value-unit">dBFS</span>`; }
           const slider = document.getElementById(`gainSlider-${g.id}`);
-          if (slider && !slider.matches(':active')) {
-            slider.value = parseFloat(g.gain_db);
-          }
+          if (slider && !slider.matches(':active')) { slider.value = parseFloat(g.gain_db); }
           const input = document.getElementById(`gainInput-${g.id}`);
-          if (input && document.activeElement !== input) {
-            input.value = parseFloat(g.gain_db).toFixed(1);
-          }
+          if (input && document.activeElement !== input) { input.value = parseFloat(g.gain_db).toFixed(1); }
         });
       }
     }
@@ -662,21 +640,12 @@
       return `${sign}${db.toFixed(1)}`;
     }
 
-    // Slider real-time feedback (updates display, throttles SPI writes)
     function onGainSliderInput(gainId, value) {
       const db = parseFloat(value);
-
-      // Update display immediately for responsiveness
       const display = document.getElementById(`gainDisplay-${gainId}`);
-      if (display) {
-        display.innerHTML = `${formatGainDb(db)}<span class="gain-value-unit">dBFS</span>`;
-      }
-
-      // Update text input to match
+      if (display) { display.innerHTML = `${formatGainDb(db)}<span class="gain-value-unit">dBFS</span>`; }
       const input = document.getElementById(`gainInput-${gainId}`);
       if (input) { input.value = db.toFixed(1); }
-
-      // Throttle: send at most every 50ms while dragging
       if (!gainSendTimers[gainId]) {
         gainSendTimers[gainId] = setTimeout(() => {
           sendCommand({ action: 'set_gain', gain_id: gainId, gain_db: db });
@@ -685,46 +654,24 @@
       }
     }
 
-    // Slider released: send final value
     function onGainSliderChange(gainId, value) {
       const db = parseFloat(value);
-
-      // Clear any pending throttle timer
-      if (gainSendTimers[gainId]) {
-        clearTimeout(gainSendTimers[gainId]);
-        gainSendTimers[gainId] = null;
-      }
-
+      if (gainSendTimers[gainId]) { clearTimeout(gainSendTimers[gainId]); gainSendTimers[gainId] = null; }
       sendCommand({ action: 'set_gain', gain_id: gainId, gain_db: db });
     }
 
-    // Text input: apply on button click or Enter
     function applyGainInput(gainId) {
       const input = document.getElementById(`gainInput-${gainId}`);
       if (!input) return;
-
       let db = parseFloat(input.value);
-      if (isNaN(db)) {
-        logDev('Invalid gain value', 'error');
-        return;
-      }
-
-      // Clamp
+      if (isNaN(db)) { logDev('Invalid gain value', 'error'); return; }
       if (db < -40) db = -40;
       if (db > 0) db = 0;
-
       input.value = db.toFixed(1);
-
-      // Update slider to match
       const slider = document.getElementById(`gainSlider-${gainId}`);
       if (slider) { slider.value = db; }
-
-      // Update display
       const display = document.getElementById(`gainDisplay-${gainId}`);
-      if (display) {
-        display.innerHTML = `${formatGainDb(db)}<span class="gain-value-unit">dBFS</span>`;
-      }
-
+      if (display) { display.innerHTML = `${formatGainDb(db)}<span class="gain-value-unit">dBFS</span>`; }
       sendCommand({ action: 'set_gain', gain_id: gainId, gain_db: db });
       logDev(`Set ${state.gains[gainId]?.name || 'Gain'} to ${db.toFixed(1)} dBFS`, 'info');
     }
@@ -733,24 +680,18 @@
       const dspStatus = document.getElementById('valDspStatus');
       dspStatus.textContent = state.dsp_alive ? 'Connected' : 'No Response';
       dspStatus.className = `status-item-value ${state.dsp_alive ? 'good' : 'bad'}`;
-
       const dspRunning = document.getElementById('valDspRunning');
       dspRunning.textContent = state.dsp_running ? 'Running' : 'Stopped';
       dspRunning.className = `status-item-value ${state.dsp_running ? 'good' : 'warn'}`;
-
       document.getElementById('valSpiCount').textContent = state.spi_transactions.toLocaleString();
-
       const hrs = Math.floor(state.uptime / 3600);
       const mins = Math.floor((state.uptime % 3600) / 60);
       const secs = state.uptime % 60;
       document.getElementById('valUptime').textContent = `${hrs}h ${mins.toString().padStart(2,'0')}m ${secs.toString().padStart(2,'0')}s`;
-
       document.getElementById('valClients').textContent = state.wifi_clients;
-
       const errorEl = document.getElementById('valError');
       errorEl.textContent = state.error === 0 ? 'None' : `Code ${state.error}`;
       errorEl.className = `status-item-value ${state.error === 0 ? 'good' : 'bad'}`;
-
       const dspDot = document.getElementById('statusDotDsp');
       dspDot.className = `status-dot ${state.dsp_alive ? 'alive' : 'dead'}`;
       document.getElementById('statusTextDsp').textContent = state.dsp_alive ? 'DSP' : 'DSP ✗';
@@ -767,6 +708,7 @@
       renderGainControls();
       updateStatusPanel();
       updateConnectionUI();
+      updateMuteAllButton();
     }
 
     // ========================================================================
@@ -775,7 +717,22 @@
     function toggleMute(channelId) {
       sendCommand({ action: 'toggle_mute', channel: channelId });
       const ch = state.channels.find(c => c.id === channelId);
-      if (ch) { ch.muted = !ch.muted; renderChannelStrips(); }
+      if (ch) {
+        ch.muted = !ch.muted;
+        // Update this one strip in place
+        const strip = document.getElementById(`channel-${ch.id}`);
+        if (strip) {
+          const isMuted = ch.muted;
+          strip.className = `channel-strip ${isMuted ? 'muted' : 'unmuted'}`;
+          strip.querySelector('.channel-status').className = `channel-status ${isMuted ? 'muted' : 'unmuted'}`;
+          strip.querySelector('.channel-status').innerHTML = isMuted ? '&#9679; MUTED' : '&#9679; ACTIVE';
+          strip.querySelector('.signal-indicator-fill').className = `signal-indicator-fill ${isMuted ? 'muted' : 'active'}`;
+          const btn = strip.querySelector('.mute-btn');
+          btn.className = `mute-btn ${isMuted ? 'muted' : 'unmuted'}`;
+          btn.title = `Click to ${isMuted ? 'unmute' : 'mute'}`;
+        }
+        updateMuteAllButton();
+      }
     }
 
     // ========================================================================

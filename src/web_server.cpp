@@ -8,10 +8,10 @@
 #include "hardware_config.h"
 
 #include <WiFi.h>
-#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <DNSServer.h>
 
 // =============================================================================
 // Server & WebSocket Objects
@@ -20,10 +20,12 @@
 static AsyncWebServer server(WEB_SERVER_PORT);
 static AsyncWebSocket ws("/ws");
 static DNSServer dnsServer;
-static bool ap_mode = false;
 
 // Timing
 static unsigned long last_status_push = 0;
+
+// Status polling control
+static bool status_paused = false;
 
 // =============================================================================
 // WebSocket Message Handlers
@@ -143,6 +145,17 @@ static void handle_ws_message(AsyncWebSocketClient* client, const String& msg) {
     dsp_refresh_status();
     client->text(build_status_json());
   }
+  // ----- Action: Pause/Resume Status Polling -----
+  else if (strcmp(action, "set_status_polling") == 0) {
+    bool paused = doc["paused"] | false;
+    status_paused = paused;
+    Serial.printf("[WS] Status polling %s\n", paused ? "PAUSED" : "RESUMED");
+
+    if (!paused) {
+      dsp_refresh_status();
+      client->text(build_status_json());
+    }
+  }
   // ----- Action: Reset DSP -----
   else if (strcmp(action, "reset_dsp") == 0) {
     adau1467_reset();
@@ -205,10 +218,14 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
                     client->id(), client->remoteIP().toString().c_str());
       dsp_refresh_status();
       client->text(build_status_json());
+      status_paused = false;
       break;
 
     case WS_EVT_DISCONNECT:
       Serial.printf("[WS] Client %u disconnected\n", client->id());
+      if (ws.count() == 0) {
+        status_paused = false;
+      }
       break;
 
     case WS_EVT_DATA: {
@@ -229,6 +246,48 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
       Serial.printf("[WS] Error from client %u: %u\n", client->id(), *((uint16_t*)arg));
       break;
   }
+}
+
+// =============================================================================
+// Captive Portal Handlers
+// =============================================================================
+// iOS, Android, and Windows probe specific URLs to detect internet access.
+// If these fail or return unexpected responses, the device may show a captive
+// portal popup or refuse to use the Wi-Fi connection for web traffic.
+// We respond with a redirect to our main page, or a simple 200 OK.
+
+static void setupCaptivePortal() {
+  // Apple iOS / macOS captive portal detection
+  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+  server.on("/library/test/success.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+
+  // Android captive portal detection
+  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+  server.on("/gen_204", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+  server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+
+  // Microsoft Windows captive portal detection
+  server.on("/ncsi.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+  server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+  server.on("/redirect", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->redirect("http://192.168.4.1/");
+  });
+
+  Serial.println("[HTTP] Captive portal handlers registered");
 }
 
 // =============================================================================
@@ -265,14 +324,15 @@ static void init_wifi() {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, false, WIFI_AP_MAX_CONN);
 
-    // Start DNS server to redirect all lookups to our IP (captive portal support)
-    dnsServer.start(53, "*", WiFi.softAPIP());
-    ap_mode = true;
-
     IPAddress ip = WiFi.softAPIP();
     Serial.printf("[WiFi] AP started. Connect to '%s' and browse to http://%s\n",
                   WIFI_AP_SSID, ip.toString().c_str());
     digitalWrite(LED_WIFI, HIGH);
+
+    // Start DNS server to redirect all domain lookups to our IP
+    // This is essential for captive portal detection on iOS/Android
+    dnsServer.start(53, "*", ip);
+    Serial.println("[DNS] Captive portal DNS server started");
   }
 }
 
@@ -292,49 +352,8 @@ void web_server_init() {
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
-  // =========================================================================
-  // Captive Portal Handlers (MUST be registered before serveStatic)
-  // These respond to OS-level connectivity checks so the device dismisses
-  // its captive portal sheet and allows normal browsing to 192.168.4.1
-  // =========================================================================
-
-  // Apple iOS / macOS
-  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/html",
-      "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
-  });
-  server.on("/library/test/success.html", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/html",
-      "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
-  });
-
-  // Android
-  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(204);
-  });
-  server.on("/gen_204", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(204);
-  });
-  server.on("/connectivity-check.html", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/html", "");
-  });
-
-  // Microsoft Windows
-  server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/plain", "Microsoft Connect Test");
-  });
-  server.on("/redirect", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/html", "");
-  });
-
-  // Firefox
-  server.on("/success.txt", HTTP_GET, [](AsyncWebServerRequest* request) {
-    request->send(200, "text/plain", "success");
-  });
-
-  // =========================================================================
-  // Application Routes
-  // =========================================================================
+  // Register captive portal detection handlers (must be before serveStatic)
+  setupCaptivePortal();
 
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
@@ -344,7 +363,8 @@ void web_server_init() {
   });
 
   server.onNotFound([](AsyncWebServerRequest* request) {
-    request->send(404, "text/plain", "Not found");
+    // Redirect any unknown URL to the main page (helps with captive portal)
+    request->redirect("http://192.168.4.1/");
   });
 
   server.begin();
@@ -356,17 +376,15 @@ void web_server_init() {
 // =============================================================================
 
 void web_server_loop() {
-  // Process DNS requests in AP mode (captive portal support)
-  if (ap_mode) {
-    dnsServer.processNextRequest();
-  }
+  // Process DNS requests (required for captive portal)
+  dnsServer.processNextRequest();
 
   ws.cleanupClients();
 
   if (millis() - last_status_push >= STATUS_REPORT_INTERVAL_MS) {
     last_status_push = millis();
 
-    if (ws.count() > 0) {
+    if (!status_paused && ws.count() > 0) {
       dsp_refresh_status();
       ws.textAll(build_status_json());
     }
